@@ -69,6 +69,17 @@ const currentAccountName = computed(() => {
 })
 const allFertilizerLandTypes = ['gold', 'black', 'red', 'normal']
 
+const fertilizerBuyTypeOptions = [
+  { label: '仅有机化肥', value: 'organic' },
+  { label: '仅普通化肥', value: 'normal' },
+  { label: '两者都买', value: 'both' },
+]
+
+const fertilizerBuyModeOptions = [
+  { label: '容器不足时购买', value: 'threshold' },
+  { label: '无限购买', value: 'unlimited' },
+]
+
 const fertilizerLandTypeOptions = [
   { label: '金土地', value: 'gold' },
   { label: '黑土地', value: 'black' },
@@ -130,6 +141,10 @@ const localSettings = ref({
     email: false,
     fertilizer_gift: false,
     fertilizer_buy: false,
+    fertilizer_buy_type: 'organic' as string,
+    fertilizer_buy_max: 10,
+    fertilizer_buy_mode: 'threshold' as string,
+    fertilizer_buy_threshold: 100,
     free_gifts: false,
     share_reward: false,
     vip_gift: false,
@@ -165,6 +180,16 @@ const analyticsCropMetas = ref<AnalyticsCropMeta[]>([])
 const stealBlacklistSearch = ref('')
 const stealBlacklistCollapsed = ref(true)
 const onlyShowUnselectedStealCrops = ref(false)
+
+watch(() => localSettings.value.automation.fertilizer_buy_mode, (mode) => {
+  if (mode === 'unlimited' && localSettings.value.automation.fertilizer_buy_type === 'both')
+    localSettings.value.automation.fertilizer_buy_type = 'organic'
+})
+
+watch(() => localSettings.value.automation.fertilizer_buy_type, (type) => {
+  if (type === 'both' && localSettings.value.automation.fertilizer_buy_mode === 'unlimited')
+    localSettings.value.automation.fertilizer_buy_mode = 'threshold'
+})
 
 function parsePositiveInt(input: unknown): number | null {
   const value = Number.parseInt(String(input ?? ''), 10)
@@ -441,6 +466,10 @@ function syncLocalSettings() {
         email: false,
         fertilizer_gift: false,
         fertilizer_buy: false,
+        fertilizer_buy_type: 'organic' as string,
+        fertilizer_buy_max: 10,
+        fertilizer_buy_mode: 'threshold' as string,
+        fertilizer_buy_threshold: 100,
         free_gifts: false,
         share_reward: false,
         vip_gift: false,
@@ -473,6 +502,10 @@ function syncLocalSettings() {
         email: false,
         fertilizer_gift: false,
         fertilizer_buy: false,
+        fertilizer_buy_type: 'organic' as string,
+        fertilizer_buy_max: 10,
+        fertilizer_buy_mode: 'threshold' as string,
+        fertilizer_buy_threshold: 100,
         free_gifts: false,
         share_reward: false,
         vip_gift: false,
@@ -797,6 +830,10 @@ async function saveAccountSettings() {
 
   localSettings.value.automation.fertilizer_land_types = normalizeFertilizerLandTypes(localSettings.value.automation.fertilizer_land_types)
   localSettings.value.automation.friend_steal_blacklist = normalizeStealPlantBlacklist(localSettings.value.automation.friend_steal_blacklist)
+  localSettings.value.automation.fertilizer_buy_max = Math.max(1, Math.min(10, Number.parseInt(String(localSettings.value.automation.fertilizer_buy_max), 10) || 10))
+  localSettings.value.automation.fertilizer_buy_threshold = Math.max(0, Number.parseInt(String(localSettings.value.automation.fertilizer_buy_threshold), 10) || 0)
+  if (localSettings.value.automation.fertilizer_buy_mode === 'unlimited' && localSettings.value.automation.fertilizer_buy_type === 'both')
+    localSettings.value.automation.fertilizer_buy_type = 'organic'
 
   saving.value = true
   try {
@@ -1183,6 +1220,46 @@ async function handleTestOffline() {
             </div>
             <p class="mt-2 text-xs text-purple-700/90 dark:text-purple-200/85">
               开启后，会在作物即将成熟时（提前设置的分钟数）自动施有机肥催熟并立即收获，防止被偷。
+            </p>
+          </div>
+
+          <div v-if="localSettings.automation.fertilizer_buy" class="border border-cyan-200 rounded bg-cyan-50/60 p-3 dark:border-cyan-800/60 dark:bg-cyan-900/10">
+            <div class="mb-2 text-sm text-cyan-800 font-medium dark:text-cyan-300">
+              购买化肥配置
+            </div>
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <BaseSelect
+                v-model="localSettings.automation.fertilizer_buy_type"
+                label="购买种类"
+                :options="fertilizerBuyTypeOptions"
+              />
+              <BaseSelect
+                v-model="localSettings.automation.fertilizer_buy_mode"
+                label="购买条件"
+                :options="fertilizerBuyModeOptions"
+              />
+            </div>
+            <div class="grid grid-cols-1 mt-3 gap-3 md:grid-cols-2">
+              <BaseInput
+                v-model.number="localSettings.automation.fertilizer_buy_max"
+                label="本轮最多购买总数（个）"
+                type="number"
+                min="1"
+                max="10"
+              />
+              <BaseInput
+                v-if="localSettings.automation.fertilizer_buy_mode === 'threshold'"
+                v-model.number="localSettings.automation.fertilizer_buy_threshold"
+                label="容器低于此小时数时购买"
+                type="number"
+                min="0"
+              />
+            </div>
+            <p v-if="localSettings.automation.fertilizer_buy_mode === 'threshold'" class="mt-2 text-xs text-cyan-700 dark:text-cyan-300">
+              阈值为 0 表示容器空了再买。
+            </p>
+            <p v-if="localSettings.automation.fertilizer_buy_mode === 'unlimited'" class="mt-2 text-xs text-amber-600 dark:text-amber-400">
+              无限购买模式下不能同时选择两种化肥
             </p>
           </div>
 
