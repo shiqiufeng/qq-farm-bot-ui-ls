@@ -102,12 +102,8 @@ async function loadQRCode() {
 }
 
 const isMobile = computed(() => /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent))
-const manualNameHint = computed(() => form.platform === 'qq'
-  ? '留空备注名时，会在保存后自动同步游戏名称。'
-  : '微信小程序保留原逻辑，留空时将使用默认备注名。')
-const manualNamePlaceholder = computed(() => form.platform === 'qq'
-  ? '留空自动同步游戏名称'
-  : '留空默认账号名')
+const manualNameHint = computed(() => '留空备注名时，会在保存后自动同步游戏名称。')
+const manualNamePlaceholder = computed(() => '留空自动同步游戏名称')
 
 function openQRCodeLoginUrl() {
   if (!qrData.value?.url)
