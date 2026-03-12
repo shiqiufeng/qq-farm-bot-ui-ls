@@ -1,0 +1,19 @@
+{
+  "$schema": "https://schema.zeabur.app/template.json",
+  "name": "qq-farm-bot-ui",
+  "description": "QQ农场多账号挂机 + Web面板",
+  "services": [
+    {
+      "name": "qq-farm-bot-ui",
+      "type": "prebuilt",
+      "source": {
+        "url": "https://github.com/shiqiufeng/qq-farm-bot-ui-ls",
+        "branch": "2"
+      },
+      "build": {
+        "dockerfile": "core/Dockerfile",
+        "context": "."
+      }
+    }
+  ]
+}
