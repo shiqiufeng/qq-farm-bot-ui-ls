@@ -5,7 +5,7 @@
 const protobuf = require('protobufjs');
 const { CONFIG, PlantPhase, PHASE_NAMES } = require('../config/config');
 const { getPlantNameBySeedId, getPlantName, getPlantExp, formatGrowTime, getPlantGrowTime, getAllSeeds, getPlantById, getPlantBySeedId, getSeedImageBySeedId } = require('../config/gameConfig');
-const { isAutomationOn, getPreferredSeed, getAutomation, getPlantingStrategy, getBagSeedPriority, setPlantingStrategy } = require('../models/store');
+const { isAutomationOn, getPreferredSeed, getAutomation, getPlantingStrategy, getBagSeedPriority, setPlantingStrategy, getOrganicAntiStealMinutes } = require('../models/store');
 const { sendMsgAsync, getUserState, networkEvents, getWsErrorState } = require('../utils/network');
 const { types } = require('../utils/proto');
 const { toLong, toNum, getServerTimeSec, toTimeSec, log, logWarn, sleep } = require('../utils/utils');
@@ -136,6 +136,149 @@ async function fertilizeOrganicLoop(landIds) {
     }
 
     return successCount;
+}
+
+async function runOrganicAntiSteal() {
+    if (!isAutomationOn('organicAntiSteal')) return { hadWork: false };
+
+    const nowSec = getServerTimeSec();
+    const antiStealMinutes = getOrganicAntiStealMinutes();
+    const thresholdSec = antiStealMinutes * 60;
+
+    let landsReply;
+    try {
+        landsReply = await getAllLands();
+    } catch (e) {
+        logWarn('防偷菜', `获取土地信息失败: ${e.message}`);
+        return { hadWork: false };
+    }
+
+    if (!landsReply || !Array.isArray(landsReply.lands)) {
+        return { hadWork: false };
+    }
+
+    const lands = landsReply.lands;
+    const landsMap = buildLandMap(lands);
+    const targets = [];
+    const targetDetails = [];
+
+    for (const land of lands) {
+        if (!land || !land.unlocked) continue;
+        if (isOccupiedSlaveLand(land, landsMap)) continue;
+
+        const landId = toNum(land.id);
+        if (!landId) continue;
+
+        const plant = land.plant;
+        if (!plant || !plant.phases || plant.phases.length === 0) continue;
+
+        const currentPhase = getCurrentPhase(plant.phases, false, '');
+        if (!currentPhase) continue;
+
+        const phaseVal = toNum(currentPhase.phase);
+        if (phaseVal === PlantPhase.MATURE || phaseVal === PlantPhase.DEAD) continue;
+
+        // 查找成熟阶段
+        const maturePhase = plant.phases.find(p => toNum(p.phase) === PlantPhase.MATURE);
+        if (!maturePhase) continue;
+
+        const matureBegin = toTimeSec(maturePhase.begin_time);
+        if (matureBegin <= 0) continue;
+
+        const timeToMature = matureBegin - nowSec;
+        if (timeToMature > 0 && timeToMature <= thresholdSec) {
+            // 检查是否还能施有机肥
+            if (Object.prototype.hasOwnProperty.call(plant, 'left_inorc_fert_times')) {
+                const leftTimes = toNum(plant.left_inorc_fert_times);
+                if (leftTimes <= 0) continue;
+            }
+            targets.push(landId);
+            const plantId = toNum(plant.id);
+            const plantName = getPlantName(plantId) || '未知作物';
+            const minutes = Math.floor(timeToMature / 60);
+            const seconds = timeToMature % 60;
+            const timeStr = minutes > 0 ? `${minutes}分${seconds}秒` : `${seconds}秒`;
+            targetDetails.push(`#${landId} ${plantName}(剩${timeStr})`);
+        }
+    }
+
+    if (targets.length === 0) {
+        return { hadWork: false };
+    }
+
+    log('防偷菜', `发现 ${targets.length} 块即将成熟的作物，准备施肥催熟: ${targetDetails.join(', ')}`, {
+        module: 'farm',
+        event: '防偷催熟',
+        count: targets.length,
+        landIds: [...targets],
+    });
+
+    let fertilizedCount = 0;
+    try {
+        fertilizedCount = await fertilizeOrganicLoop(targets);
+    } catch (e) {
+        logWarn('防偷菜', `施肥失败: ${e.message}`);
+    }
+
+    if (fertilizedCount <= 0) {
+        return { hadWork: false };
+    }
+
+    log('防偷菜', `已施肥 ${fertilizedCount} 次，等待催熟后收获`, {
+        module: 'farm',
+        event: '防偷施肥',
+        result: 'ok',
+        fertilizedCount,
+    });
+
+    // 记录施肥统计
+    recordOperation('fertilize', fertilizedCount);
+    // 记录防偷次数
+    recordOperation('antiSteal', 1);
+
+    // 等待一段时间让作物成熟
+    await sleep(30);// 30毫秒后检查是否成熟
+
+    // 尝试收获
+    let harvestCount = 0;
+    try {
+        const latestLands = await getAllLands();
+        if (latestLands && Array.isArray(latestLands.lands)) {
+            const harvestable = [];
+            const latestLandsMap = buildLandMap(latestLands.lands);
+
+            for (const land of latestLands.lands) {
+                if (!land || !land.unlocked) continue;
+                if (isOccupiedSlaveLand(land, latestLandsMap)) continue;
+
+                const plant = land.plant;
+                if (!plant || !plant.phases || plant.phases.length === 0) continue;
+
+                const currentPhase = getCurrentPhase(plant.phases, false, '');
+                if (!currentPhase) continue;
+
+                if (toNum(currentPhase.phase) === PlantPhase.MATURE) {
+                    harvestable.push(toNum(land.id));
+                }
+            }
+
+            if (harvestable.length > 0) {
+                await harvest(harvestable);
+                harvestCount = harvestable.length;
+                // 记录收获统计
+                recordOperation('harvest', harvestCount);
+                log('防偷菜', `已收获 ${harvestCount} 块地`, {
+                    module: 'farm',
+                    event: '防偷收获',
+                    harvestCount,
+                });
+            }
+        }
+    } catch (e) {
+        logWarn('防偷菜', `收获失败: ${e.message}`);
+    }
+
+    return { hadWork: fertilizedCount > 0, fertilizedCount, harvestCount };
 }
 
 function getOrganicFertilizerTargetsFromLands(lands) {
@@ -842,7 +985,7 @@ async function autoPlantEmptyLands(deadLandIds, emptyLandIds) {
 
     const strategy = getPlantingStrategy();
     log('种植', `当前种植策略: ${strategy}`, {
-        module: 'farm', event: 'plant_strategy', strategy
+        module: 'farm', event: '种植策略', strategy
     });
 
     // 2. 背包种子优先模式
@@ -1322,14 +1465,25 @@ async function checkFarm() {
     if (isCheckingFarm || !state.gid || !isAutomationOn('farm')) return false;
     isCheckingFarm = true;
 
+    let hadWork = false;
+
     try {
+        // 先运行有机肥防偷菜
+        const antiStealResult = await runOrganicAntiSteal();
+        if (antiStealResult && antiStealResult.hadWork) {
+            hadWork = true;
+        }
+
         // 复用手动操作逻辑
         const result = await runFarmOperation('all', { automated: true });
         isFirstFarmCheck = false;
-        return !!(result && result.hadWork);
+        if (result && result.hadWork) {
+            hadWork = true;
+        }
+        return hadWork;
     } catch (err) {
         logWarn('巡田', `检查失败: ${err.message}`);
-        return false;
+        return hadWork;
     } finally {
         isCheckingFarm = false;
     }
@@ -1602,9 +1756,10 @@ module.exports = {
     getAllLands,
     getLandsDetail,
     getAvailableSeeds,
-    runFarmOperation, // 导出新函数
+    runFarmOperation,
     runFertilizerByConfig,
     buildLandMap,
     getDisplayLandContext,
     isOccupiedSlaveLand,
+    runOrganicAntiSteal,
 };

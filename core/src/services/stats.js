@@ -22,6 +22,7 @@ const operations = {
     sell: 0,
     upgrade: 0,
     levelUp: 0,
+    antiSteal: 0, // 防偷次数
 };
 
 // 状态追踪

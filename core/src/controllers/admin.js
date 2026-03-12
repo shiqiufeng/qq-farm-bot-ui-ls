@@ -712,6 +712,7 @@ function startAdminServer(dataProvider) {
             const bagSeedPriority = store.getBagSeedPriority(id);
             const friendQuietHours = store.getFriendQuietHours(id);
             const automation = store.getAutomation(id);
+            const organicAntiStealMinutes = store.getOrganicAntiStealMinutes ? store.getOrganicAntiStealMinutes(id) : 5;
             const ui = store.getUI();
             const offlineReminder = store.getOfflineReminder
                 ? store.getOfflineReminder()
@@ -722,7 +723,7 @@ function startAdminServer(dataProvider) {
             const runtimeClient = store.getRuntimeClientConfig
                 ? store.getRuntimeClientConfig()
                 : null;
-            res.json({ ok: true, data: { intervals, strategy, preferredSeed, bagSeedPriority, friendQuietHours, automation, ui, offlineReminder, qrLogin, runtimeClient } });
+            res.json({ ok: true, data: { intervals, strategy, preferredSeed, bagSeedPriority, friendQuietHours, automation, organicAntiStealMinutes, ui, offlineReminder, qrLogin, runtimeClient } });
         } catch (e) {
             res.status(500).json({ ok: false, error: e.message });
         }

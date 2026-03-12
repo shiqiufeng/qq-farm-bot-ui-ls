@@ -21,6 +21,7 @@ export interface AutomationConfig {
   friend_help?: boolean
   friend_bad?: boolean
   open_server_gift?: boolean
+  organicAntiSteal?: boolean
 }
 
 export interface IntervalsConfig {
@@ -92,6 +93,7 @@ export interface SettingsState {
   offlineReminder: OfflineConfig
   qrLogin: QrLoginConfig
   runtimeClient: RuntimeClientConfig
+  organicAntiStealMinutes: number
 }
 
 export const useSettingStore = defineStore('setting', () => {
@@ -129,6 +131,7 @@ export const useSettingStore = defineStore('setting', () => {
         device_id: 'iPhone X<iPhone18,3>',
       },
     },
+    organicAntiStealMinutes: 5,
   })
   const loading = ref(false)
 
@@ -148,6 +151,7 @@ export const useSettingStore = defineStore('setting', () => {
         settings.value.intervals = d.intervals || {}
         settings.value.friendQuietHours = d.friendQuietHours || { enabled: false, start: '23:00', end: '07:00' }
         settings.value.automation = d.automation || {}
+        settings.value.organicAntiStealMinutes = d.organicAntiStealMinutes || 5
         settings.value.ui = d.ui || {}
         settings.value.offlineReminder = {
           channel: 'webhook',
@@ -195,6 +199,7 @@ export const useSettingStore = defineStore('setting', () => {
         bagSeedPriority: newSettings.bagSeedPriority,
         intervals: newSettings.intervals,
         friendQuietHours: newSettings.friendQuietHours,
+        organicAntiStealMinutes: newSettings.organicAntiStealMinutes,
       }
 
       await api.post('/api/settings/save', settingsPayload, {

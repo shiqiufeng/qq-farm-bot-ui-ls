@@ -79,7 +79,9 @@ const DEFAULT_ACCOUNT_CONFIG = {
         fertilizer: 'none',
         fertilizer_multi_season: false,
         fertilizer_land_types: [...DEFAULT_FERTILIZER_LAND_TYPES],
+        organicAntiSteal: false, // 有机肥防偷菜功能
     },
+    organicAntiStealMinutes: 5, // 防偷菜提前时间（分钟）
     plantingStrategy: 'preferred',
     preferredSeedId: 0,
     bagSeedPriority: [],
@@ -108,6 +110,7 @@ let accountFallbackConfig = {
         fertilizer_land_types: [...DEFAULT_FERTILIZER_LAND_TYPES],
         friend_steal_blacklist: [...DEFAULT_STEAL_PLANT_BLACKLIST],
     },
+    organicAntiStealMinutes: DEFAULT_ACCOUNT_CONFIG.organicAntiStealMinutes,
     intervals: { ...DEFAULT_ACCOUNT_CONFIG.intervals },
     friendQuietHours: { ...DEFAULT_ACCOUNT_CONFIG.friendQuietHours },
 };
@@ -398,9 +401,17 @@ function cloneAccountConfig(base = DEFAULT_ACCOUNT_CONFIG) {
 
     const rawBlacklist = Array.isArray(base.friendBlacklist) ? base.friendBlacklist : [];
     const rawFriendCache = Array.isArray(base.friendCache) ? base.friendCache : [];
+    let organicAntiStealMinutes = DEFAULT_ACCOUNT_CONFIG.organicAntiStealMinutes;
+    if (base && base.organicAntiStealMinutes !== undefined) {
+        const val = Number.parseInt(base.organicAntiStealMinutes, 10);
+        if (Number.isFinite(val) && val >= 1 && val <= 60) {
+            organicAntiStealMinutes = val;
+        }
+    }
     return {
         ...base,
         automation,
+        organicAntiStealMinutes,
         intervals: { ...(base.intervals || DEFAULT_ACCOUNT_CONFIG.intervals) },
         friendQuietHours: { ...(base.friendQuietHours || DEFAULT_ACCOUNT_CONFIG.friendQuietHours) },
         friendBlacklist: rawBlacklist.map(Number).filter(n => Number.isFinite(n) && n > 0),
@@ -450,6 +461,13 @@ function normalizeAccountConfig(input, fallback = accountFallbackConfig) {
 
     if (src.bagSeedPriority !== undefined) {
         cfg.bagSeedPriority = normalizeBagSeedPriority(src.bagSeedPriority);
+    }
+
+    if (src.organicAntiStealMinutes !== undefined) {
+        const val = Number.parseInt(src.organicAntiStealMinutes, 10);
+        if (Number.isFinite(val) && val >= 1 && val <= 60) {
+            cfg.organicAntiStealMinutes = val;
+        }
     }
 
     if (src.intervals && typeof src.intervals === 'object') {
@@ -663,6 +681,7 @@ function getConfigSnapshot(accountId) {
         intervals: { ...cfg.intervals },
         friendQuietHours: { ...cfg.friendQuietHours },
         friendBlacklist: [...(cfg.friendBlacklist || [])],
+        organicAntiStealMinutes: cfg.organicAntiStealMinutes,
         ui: { ...globalConfig.ui },
         qrLogin: normalizeQrLoginConfig(globalConfig.qrLogin),
         runtimeClient: getRuntimeClientConfig(),
@@ -703,6 +722,13 @@ function applyConfigSnapshot(snapshot, options = {}) {
 
     if (cfg.bagSeedPriority !== undefined) {
         next.bagSeedPriority = normalizeBagSeedPriority(cfg.bagSeedPriority);
+    }
+
+    if (cfg.organicAntiStealMinutes !== undefined) {
+        const val = Number.parseInt(cfg.organicAntiStealMinutes, 10);
+        if (Number.isFinite(val) && val >= 1 && val <= 60) {
+            next.organicAntiStealMinutes = val;
+        }
     }
 
     if (cfg.intervals && typeof cfg.intervals === 'object') {
@@ -846,6 +872,10 @@ function updateFriendCache(accountId, newItems) {
     return [...next.friendCache];
 }
 
+function getOrganicAntiStealMinutes(accountId) {
+    return getAccountConfigSnapshot(accountId).organicAntiStealMinutes || DEFAULT_ACCOUNT_CONFIG.organicAntiStealMinutes;
+}
+
 function getUI() {
     return { ...globalConfig.ui };
 }
@@ -979,4 +1009,5 @@ module.exports = {
     setAdminPasswordHash,
     getDisablePasswordAuth,
     setDisablePasswordAuth,
+    getOrganicAntiStealMinutes,
 };
