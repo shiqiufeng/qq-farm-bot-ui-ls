@@ -798,10 +798,11 @@ function startAdminServer(dataProvider) {
             }
 
             const incomingCode = String(payload.code || '').trim();
-            if (incomingCode) {
+            const manualPlatform = String(payload.platform || (oldAccount && oldAccount.platform) || 'qq').trim().toLowerCase();
+            if (incomingCode && manualPlatform === 'qq') {
                 try {
                     const basicProfile = await fetchProfileByCode(incomingCode, {
-                        platform: payload.platform || (oldAccount && oldAccount.platform) || 'qq',
+                        platform: manualPlatform,
                     });
 
                     if (basicProfile.avatar) {
