@@ -309,10 +309,14 @@ watch(() => props.show, (newVal) => {
 
         <!-- Manual Tab -->
         <div v-if="activeTab === 'manual'" class="space-y-4">
+          <div class="rounded-lg bg-blue-50 p-3 text-sm text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">
+            留空备注名时，会在保存后自动同步游戏名称。
+          </div>
+
           <BaseInput
             v-model="form.name"
             label="备注名称"
-            placeholder="留空默认账号X"
+            placeholder="留空自动同步游戏名称"
           />
 
           <BaseTextarea
