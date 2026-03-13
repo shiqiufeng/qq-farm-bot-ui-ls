@@ -77,9 +77,10 @@ const displayLands = computed(() => {
   const rows = Math.ceil(list.length / columns)
   const ordered: any[] = []
 
-  // Convert source data into the same top-to-bottom, left-to-right order the CSS grid uses.
+  // 农田编号从每列的右上角向下排列。
+// 重新排序卡片，使渲染的网格与游戏内布局匹配。
   for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < columns; col++) {
+    for (let col = columns - 1; col >= 0; col--) {
       const index = col * rows + row
       if (index < list.length)
         ordered.push(list[index])
