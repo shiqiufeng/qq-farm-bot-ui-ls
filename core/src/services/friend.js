@@ -750,6 +750,8 @@ async function getFriendLandsDetail(friendGid) {
                     plantName: '',
                     phaseName: '未解锁',
                     level,
+                    currentSeason: 0,
+                    totalSeason: 0,
                     needWater: false,
                     needWeed: false,
                     needBug: false,
