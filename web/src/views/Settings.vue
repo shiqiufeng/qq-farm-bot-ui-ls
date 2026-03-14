@@ -766,8 +766,8 @@ watchEffect(async () => {
     return
   }
   if (strategy === 'level') {
-    const best = [...available].sort((a, b) => b.requiredLevel - a.requiredLevel)[0]
-    strategyPreviewLabel.value = best ? `${best.requiredLevel}级 ${best.name}` : null
+    const best = [...available].sort((a, b) => (b.requiredLevel || 0) - (a.requiredLevel || 0))[0]
+    strategyPreviewLabel.value = best ? `${best.requiredLevel || 0}级 ${best.name}` : null
     return
   }
   const sortBy = analyticsSortByMap[strategy]
@@ -779,7 +779,7 @@ watchEffect(async () => {
       const match = rankings.find(r => availableIds.has(Number(r.seedId)))
       if (match) {
         const seed = available.find(s => s.seedId === Number(match.seedId))
-        strategyPreviewLabel.value = seed ? `${seed.requiredLevel}级 ${seed.name}` : null
+        strategyPreviewLabel.value = seed ? `${seed.requiredLevel || 0}级 ${seed.name}` : null
       }
       else {
         strategyPreviewLabel.value = '暂无匹配种子'
