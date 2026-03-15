@@ -1116,7 +1116,7 @@ async function handleTestOffline() {
       <p>加载中...</p>
     </div>
 
-    <div v-else class="grid grid-cols-1 gap-4 text-sm lg:grid-cols-2"></div>
+    <div v-else class="grid grid-cols-1 gap-4 text-sm lg:grid-cols-2">
       <!-- Card 1: Strategy & Automation -->
       <div v-if="currentAccountId" class="card h-full flex flex-col rounded-lg bg-white shadow dark:bg-gray-800">
         <!-- Strategy Header -->
@@ -1515,7 +1515,7 @@ async function handleTestOffline() {
         </div>
 
         <!-- Save Button -->
-        <div class="flex justify-end border-t bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-900/50"></div>
+        <div class="flex justify-end border-t bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-900/50">
           <BaseButton
             variant="primary"
             size="sm"
