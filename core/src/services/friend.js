@@ -5,7 +5,7 @@
 const { CONFIG, PlantPhase, PHASE_NAMES } = require('../config/config');
 const { getPlantName, getPlantById, getSeedImageBySeedId } = require('../config/gameConfig');
 const { parentPort } = require('node:worker_threads');
-const { isAutomationOn, getFriendQuietHours, getFriendBlacklist, getAutomation, getFriendCache, updateFriendCache } = require('../models/store');
+const { isAutomationOn, getFriendQuietHours, getFriendBlacklist, getAutomation, getFriendCache, updateFriendCache, getFriendBlockLevel } = require('../models/store');
 const { sendMsgAsync, getUserState, networkEvents } = require('../utils/network');
 const { types } = require('../utils/proto');
 const { toLong, toNum, toTimeSec, getServerTimeSec, log, logWarn, sleep } = require('../utils/utils');
@@ -692,11 +692,14 @@ async function getFriendsList() {
         const reply = await getAllFriends();
         const friends = reply.game_friends || [];
         const state = getUserState();
+        const blockCfg = getFriendBlockLevel();
         return friends
-            .filter(f => toNum(f.gid) !== state.gid && f.name !== '小小农夫' && f.remark !== '小小农夫')
+            .filter(f => toNum(f.gid) !== state.gid && (f.name !== '小小农夫' && f.remark !== '小小农夫' || toNum(f.level || 1) > 1) &&
+                (!blockCfg?.enabled || toNum(f.level || 1) > toNum(blockCfg.Level || 1)))
             .map(f => ({
                 gid: toNum(f.gid),
                 name: f.remark || f.name || `GID:${toNum(f.gid)}`,
+                level: toNum(f.level || 1),
                 avatarUrl: String(f.avatar_url || '').trim(),
                 plant: f.plant ? {
                     stealNum: toNum(f.plant.steal_plant_num),
@@ -1149,10 +1152,12 @@ async function checkFriends() {
 
         for (const f of friends) {
             const gid = toNum(f.gid);
+            const blockCfg = getFriendBlockLevel();
             if (gid === state.gid) continue;
             if (visitedGids.has(gid)) continue;
             if (blacklist.has(gid)) continue;
-            if (String(f.name || '').trim() === '小小农夫' || String(f.remark || '').trim() === '小小农夫') continue;
+            if ((String(f.name || '').trim() === '小小农夫' || String(f.remark || '').trim() === '小小农夫') && toNum(f.level || 1) <= 1) continue;
+            if (blockCfg?.enabled && toNum(f.level || 1) <= toNum(blockCfg.Level || 1)) continue;
             
             const name = f.remark || f.name || `GID:${gid}`;
             const p = f.plant;
